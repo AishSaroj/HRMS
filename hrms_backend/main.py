@@ -1,18 +1,14 @@
-cat > hrms_backend/main.py << 'EOF'
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
 import schemas
-from typing import List
 
-# Create tables
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="HRMS API", version="1.0.0")
+app = FastAPI()
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -30,16 +25,15 @@ def get_db():
         db.close()
 
 @app.get("/")
-def read_root():
-    return {"message": "HRMS API is running"}
+def root():
+    return {"message": "HRMS API Running"}
 
-# Employee endpoints
-@app.get("/api/employees", response_model=List[schemas.Employee])
+@app.get("/api/employees")
 def get_employees(db: Session = Depends(get_db)):
     employees = db.query(models.Employee).all()
     return employees
 
-@app.post("/api/employees", response_model=schemas.Employee)
+@app.post("/api/employees")
 def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
     db_employee = models.Employee(**employee.dict())
     db.add(db_employee)
@@ -47,22 +41,15 @@ def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_
     db.refresh(db_employee)
     return db_employee
 
-# Attendance endpoints
-@app.get("/api/attendance", response_model=List[schemas.Attendance])
+@app.get("/api/attendance")
 def get_attendance(db: Session = Depends(get_db)):
     attendance = db.query(models.Attendance).all()
     return attendance
 
-@app.post("/api/attendance", response_model=schemas.Attendance)
+@app.post("/api/attendance")
 def create_attendance(attendance: schemas.AttendanceCreate, db: Session = Depends(get_db)):
     db_attendance = models.Attendance(**attendance.dict())
     db.add(db_attendance)
     db.commit()
     db.refresh(db_attendance)
     return db_attendance
-
-# Health check
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-EOF
