@@ -1,85 +1,68 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+cat > hrms_backend/main.py << 'EOF'
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-from models import Employee, Attendance
 import models
-import datetime
+import schemas
+from typing import List
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
-app = Flask(__name__)
-CORS(app)
+app = FastAPI(title="HRMS API", version="1.0.0")
 
-@app.route('/')
-def home():
-    return jsonify({"message": "HRMS API Running"})
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Employees Routes
-@app.route('/api/employees', methods=['GET'])
-def get_employees():
+# Dependency
+def get_db():
     db = SessionLocal()
-    employees = db.query(Employee).all()
-    db.close()
-    return jsonify([{
-        "id": e.id,
-        "name": e.name, 
-        "email": e.email,
-        "department": e.department
-    } for e in employees])
+    try:
+        yield db
+    finally:
+        db.close()
 
-@app.route('/api/employees', methods=['POST'])
-def create_employee():
-    data = request.json
-    db = SessionLocal()
-    employee = Employee(
-        name=data['name'],
-        email=data['email'],
-        department=data.get('department', 'IT')
-    )
-    db.add(employee)
+@app.get("/")
+def read_root():
+    return {"message": "HRMS API is running"}
+
+# Employee endpoints
+@app.get("/api/employees", response_model=List[schemas.Employee])
+def get_employees(db: Session = Depends(get_db)):
+    employees = db.query(models.Employee).all()
+    return employees
+
+@app.post("/api/employees", response_model=schemas.Employee)
+def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
+    db_employee = models.Employee(**employee.dict())
+    db.add(db_employee)
     db.commit()
-    db.refresh(employee)
-    db.close()
-    return jsonify({
-        "id": employee.id,
-        "name": employee.name,
-        "email": employee.email,
-        "department": employee.department
-    }), 201
+    db.refresh(db_employee)
+    return db_employee
 
-# Attendance Routes  
-@app.route('/api/attendance', methods=['GET'])
-def get_attendance():
-    db = SessionLocal()
-    attendance = db.query(Attendance).all()
-    db.close()
-    return jsonify([{
-        "id": a.id,
-        "employee_id": a.employee_id,
-        "date": a.date,
-        "status": a.status
-    } for a in attendance])
+# Attendance endpoints
+@app.get("/api/attendance", response_model=List[schemas.Attendance])
+def get_attendance(db: Session = Depends(get_db)):
+    attendance = db.query(models.Attendance).all()
+    return attendance
 
-@app.route('/api/attendance', methods=['POST'])
-def create_attendance():
-    data = request.json
-    db = SessionLocal()
-    attendance = Attendance(
-        employee_id=data['employee_id'],
-        date=datetime.datetime.utcnow(),
-        status=data['status']
-    )
-    db.add(attendance)
+@app.post("/api/attendance", response_model=schemas.Attendance)
+def create_attendance(attendance: schemas.AttendanceCreate, db: Session = Depends(get_db)):
+    db_attendance = models.Attendance(**attendance.dict())
+    db.add(db_attendance)
     db.commit()
-    db.refresh(attendance)
-    db.close()
-    return jsonify({
-        "id": attendance.id,
-        "employee_id": attendance.employee_id,
-        "date": attendance.date,
-        "status": attendance.status
-    }), 201
+    db.refresh(db_attendance)
+    return db_attendance
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+# Health check
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+EOF
