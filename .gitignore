@@ -1,16 +1,11 @@
-# Create root .gitignore
-cat > .gitignore << 'EOF'
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 venv/
 env/
-
-# Database
 *.db
-*.sqlite3
 hrms.db
+*.pyc
 
 # Node.js
 node_modules/
@@ -18,7 +13,6 @@ npm-debug.log*
 
 # React
 build/
-.coverage
 
 # Environment
 .env
@@ -27,7 +21,3 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-
-# Bytecode
-*.pyc
-EOF
